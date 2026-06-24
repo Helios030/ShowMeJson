@@ -53,16 +53,12 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  console.log('[ShowMeJson] 右键菜单点击', { info, tab });
-
   if (info.menuItemId !== MENU_ID_FORMAT_SELECTION) return;
   if (!tab?.id) return;
 
   const selectionText = typeof info.selectionText === "string" ? info.selectionText : "";
-  console.log('[ShowMeJson] 选中文本:', selectionText);
 
   if (selectionText.trim()) {
-    console.log('[ShowMeJson] 直接使用选中文本打开查看器');
     await openViewerNewTab(
       {
         jsonText: selectionText,
@@ -75,11 +71,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   try {
-    console.log('[ShowMeJson] 请求内容脚本获取选中文本');
     await chrome.tabs.sendMessage(tab.id, { type: "JSONFMT_GET_SELECTION" });
   } catch (e) {
-    console.error('[ShowMeJson] 发送消息失败:', e);
-    return;
+    // 内容脚本可能未注入（如 chrome:// 页面），忽略即可
   }
 });
 

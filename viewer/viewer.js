@@ -41,8 +41,70 @@ const els = {
   paneDivider: $("#paneDivider"),
   leftPane: $(".left-pane"),
   rightPane: $(".right-pane"),
-  searchResultsPanel: $("#searchResultsPanel")
+  searchResultsPanel: $("#searchResultsPanel"),
+  resultsDivider: $("#resultsDivider"),
+  btnCopyPath: $("#btnCopyPath"),
+  btnFetchUrl: $("#btnFetchUrl"),
+  fetchDialog: $("#fetchDialog"),
+  fetchUrl: $("#fetchUrl"),
+  btnCloseFetch: $("#btnCloseFetch"),
+  btnCancelFetch: $("#btnCancelFetch"),
+  btnConfirmFetch: $("#btnConfirmFetch"),
+  btnConvert: $("#btnConvert"),
+  convertDialog: $("#convertDialog"),
+  convertFormats: $("#convertFormats"),
+  convertOutput: $("#convertOutput"),
+  btnCloseConvert: $("#btnCloseConvert"),
+  btnCopyConvert: $("#btnCopyConvert"),
+  btnDownloadConvert: $("#btnDownloadConvert"),
+  btnDiff: $("#btnDiff"),
+  diffDialog: $("#diffDialog"),
+  diffA: $("#diffA"),
+  diffB: $("#diffB"),
+  diffResult: $("#diffResult"),
+  diffSummary: $("#diffSummary"),
+  btnRunDiff: $("#btnRunDiff"),
+  btnCloseDiff: $("#btnCloseDiff"),
+  btnHistory: $("#btnHistory"),
+  historyDialog: $("#historyDialog"),
+  historyList: $("#historyList"),
+  historySummary: $("#historySummary"),
+  btnCloseHistory: $("#btnCloseHistory"),
+  btnClearHistory: $("#btnClearHistory"),
+  btnMore: $("#btnMore"),
+  moreMenu: $("#moreMenu")
 };
+
+// 历史记录配置：最多保留 20 条；单条超过 1MB 不入库（保证可重新载入）
+const HISTORY_KEY = "showmejson_history";
+const HISTORY_MAX = 20;
+const HISTORY_ITEM_MAX_BYTES = 1024 * 1024;
+
+// 用户偏好持久化（与主题一致，统一走 localStorage）
+const PREFS_KEY = "showmejson-prefs";
+const THEME_NAMES = Object.freeze({
+  dark: "暗夜蓝",
+  light: "雾白",
+  blue: "海盐蓝",
+  green: "森林绿",
+  purple: "暮光紫",
+  sunset: "日落橙"
+});
+
+const prefs = (function loadPrefs() {
+  try {
+    return Object.assign({}, JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"));
+  } catch (_) {
+    return {};
+  }
+})();
+
+function savePrefs(patch) {
+  Object.assign(prefs, patch);
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch (_) {}
+}
 
 const state = {
   mode: "manual",
@@ -69,7 +131,9 @@ const state = {
   isRawContentDirty: false,
   highlightAll: false,
   highlightedNodes: new Set(),
-  currentTheme: "dark"
+  currentTheme: "dark",
+  parsedStringPaths: new Set(),
+  convertFormat: "yaml"
 };
 
 function showToast(text, type = "info", ms = 1600) {
@@ -114,6 +178,9 @@ function toggleResults(show) {
   state.showResults = show;
   if (els.searchResultsPanel) {
     els.searchResultsPanel.classList.toggle("show", show);
+  }
+  if (els.resultsDivider) {
+    els.resultsDivider.classList.toggle("show", show);
   }
 }
 
@@ -208,36 +275,35 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function highlightJson(text) {
-  if (!text) return '';
-
-  // 简单的 JSON 语法高亮
-  return text
-    // 字符串
-    .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="json-string">"$1"</span>')
-    // 数字
-    .replace(/\b(-?\d+\.?\d*([eE][+-]?\d+)?|0[xX][0-9a-fA-F]+)\b/g, '<span class="json-number">$&</span>')
-    // 布尔值
-    .replace(/\b(true|false)\b/g, '<span class="json-boolean">$&</span>')
-    // null
-    .replace(/\bnull\b/g, '<span class="json-null">$&</span>')
-    // 括号和逗号冒号
-    .replace(/([{}[\],:])/g, '<span class="json-punctuation">$1</span>');
-}
-
 function jsonHighlight(text) {
   const t = String(text || "");
   if (t.length > 2 * 1024 * 1024) return escapeHtml(t);
-  const html = escapeHtml(t).replace(
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
-    (m) => {
-      if (m.startsWith('"') && m.endsWith(":")) return `<span class="k">${m}</span>`;
-      if (m.startsWith('"')) return `<span class="v-str">${m}</span>`;
-      if (m === "true" || m === "false") return `<span class="v-bool">${m}</span>`;
-      if (m === "null") return `<span class="v-null">${m}</span>`;
-      return `<span class="v-num">${m}</span>`;
+  const tokenPattern = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?=\s*:)|"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g;
+  let html = "";
+  let lastIndex = 0;
+  let match;
+
+  while ((match = tokenPattern.exec(t)) !== null) {
+    const token = match[0];
+    html += escapeHtml(t.slice(lastIndex, match.index));
+
+    if (token.startsWith('"')) {
+      const isKey = t.slice(tokenPattern.lastIndex).trimStart().startsWith(":");
+      html += `<span class="${isKey ? "k" : "v-str"}">${escapeHtml(token)}</span>`;
+    } else if (token === "true" || token === "false") {
+      html += `<span class="v-bool">${token}</span>`;
+    } else if (token === "null") {
+      html += `<span class="v-null">${token}</span>`;
+    } else if (/^-?\d/.test(token)) {
+      html += `<span class="v-num">${escapeHtml(token)}</span>`;
+    } else {
+      html += `<span class="json-punctuation">${escapeHtml(token)}</span>`;
     }
-  );
+
+    lastIndex = tokenPattern.lastIndex;
+  }
+
+  html += escapeHtml(t.slice(lastIndex));
   return html;
 }
 
@@ -250,9 +316,7 @@ function getQueryParams() {
 }
 
 async function getPayload(id) {
-  console.log('[ShowMeJson] 请求 payload，ID:', id);
   const res = await chrome.runtime.sendMessage({ type: "JSONFMT_VIEWER_GET_PAYLOAD", id });
-  console.log('[ShowMeJson] payload 响应:', res);
   if (!res?.ok) throw new Error(res?.error || "读取数据失败");
   return res.payload;
 }
@@ -348,6 +412,8 @@ function setSelectedPath(pathParts) {
       selectedRow.classList.add("selected");
     }
   }
+
+  if (els.btnCopyPath) els.btnCopyPath.disabled = !pathParts;
 }
 
 async function copyText(text) {
@@ -448,17 +514,15 @@ function makeRow({ keyLabel, valueLabel, typeLabel, pathParts, expandable, expan
     </svg>
   `;
 
-  // 复制按钮点击事件
+  // 复制按钮点击事件：优先用渲染时记录的有效值（兼容内嵌 JSON 解析）
   copyBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
-    const key = pathToKey(pathParts);
-    const node = state.nodeIndex.get(key);
-    if (node) {
-      const jsonValue = getNodeValue(pathParts);
-      const jsonString = JSON.stringify(jsonValue, null, 2);
-      const ok = await copyText(jsonString);
-      showToast(ok ? "已复制层级内容" : "复制失败");
-    }
+    const k = pathToKey(pathParts);
+    const node = state.nodeIndex.get(k);
+    const jsonValue = node ? node.value : getNodeValue(pathParts);
+    const jsonString = JSON.stringify(jsonValue, null, 2);
+    const ok = await copyText(jsonString);
+    showToast(ok ? "已复制层级内容" : "复制失败");
   });
 
   row.appendChild(twisty);
@@ -524,16 +588,26 @@ function renderNode(keyName, value, pathParts) {
   const node = document.createElement("div");
   node.className = "node";
 
-  const expandable = isExpandable(value);
+  const key = pathToKey(pathParts);
+
+  // 内嵌 JSON 字符串：可解析时支持「就地展开为对象/数组」
+  const canParseString =
+    typeof value === "string" && window.JsonTools.tryParseJsonString(value) !== null;
+  const isParsedString = canParseString && state.parsedStringPaths.has(key);
+  const effectiveValue = isParsedString ? window.JsonTools.tryParseJsonString(value) : value;
+
+  const expandable = isExpandable(effectiveValue);
   const expanded = expandable && getExpanded(pathParts);
 
   const keyLabel = pathParts.length === 0 ? "(root)" : typeof keyName === "number" ? `[${keyName}]` : String(keyName);
   const typeLabel = (() => {
-    const t = valueType(value);
-    if (t === "array" || t === "object") return `(${summarize(value)})`;
+    const t = valueType(effectiveValue);
+    if (t === "array" || t === "object") return `(${summarize(effectiveValue)})`;
     return "";
   })();
-  const valueLabel = expandable ? `<span class="t">${escapeHtml(summarize(value))}</span>` : renderPrimitiveLabel(value);
+  const valueLabel = expandable
+    ? `<span class="t">${escapeHtml(summarize(effectiveValue))}</span>`
+    : renderPrimitiveLabel(effectiveValue);
 
   const { row, twisty } = makeRow({
     keyLabel,
@@ -544,11 +618,31 @@ function renderNode(keyName, value, pathParts) {
     expanded
   });
 
+  // 内嵌 JSON 解析开关
+  if (canParseString) {
+    const parseBtn = document.createElement("button");
+    parseBtn.className = "json-expand-btn" + (isParsedString ? " active" : "");
+    parseBtn.textContent = isParsedString ? "{} 已解析" : "{} 解析";
+    parseBtn.title = "把这段 JSON 字符串解析为对象/数组";
+    parseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (state.parsedStringPaths.has(key)) {
+        state.parsedStringPaths.delete(key);
+        state.expanded.delete(key);
+      } else {
+        state.parsedStringPaths.add(key);
+        state.expanded.add(key);
+      }
+      rerenderTree({ keepSelection: true });
+    });
+    row.appendChild(parseBtn);
+  }
+
   const childrenEl = document.createElement("div");
   childrenEl.className = "children";
   childrenEl.classList.toggle("hidden", !expanded);
 
-  if (expanded) ensureChildrenRendered(value, pathParts, childrenEl);
+  if (expanded) ensureChildrenRendered(effectiveValue, pathParts, childrenEl);
 
   if (expandable) {
     const toggle = (e) => {
@@ -564,8 +658,7 @@ function renderNode(keyName, value, pathParts) {
   node.appendChild(row);
   node.appendChild(childrenEl);
 
-  const key = pathToKey(pathParts);
-  state.nodeIndex.set(key, { row, childrenEl, value, pathParts });
+  state.nodeIndex.set(key, { row, childrenEl, value: effectiveValue, pathParts });
 
   return node;
 }
@@ -749,10 +842,6 @@ function makePreview(key, value) {
 
 function startSearch(q) {
   const query = String(q || "").trim();
-  console.log('[ShowMeJson] 开始搜索:', query);
-  console.log('[ShowMeJson] 搜索选项:', { searchKeys: state.search.searchKeys, searchValues: state.search.searchValues });
-  console.log('[ShowMeJson] 当前数据:', state.value);
-
   state.search.q = query;
   state.search.running = false;
   state.search.results = [];
@@ -799,7 +888,6 @@ function startSearch(q) {
         (state.search.searchValues && valMatch);
 
       if (shouldInclude && results.length < maxResults) {
-        console.log('[ShowMeJson] 找到匹配:', { key, value, keyMatch, valMatch, shouldInclude });
         results.push({ path, preview: makePreview(key, value) });
       }
       if (results.length >= maxResults) {
@@ -875,6 +963,7 @@ function bindEvents() {
   // 排序开关
   els.toggleSort.addEventListener("change", () => {
     state.sortKeys = !!els.toggleSort.checked;
+    savePrefs({ sortKeys: state.sortKeys });
     rerenderTree({ keepSelection: true });
   });
 
@@ -901,41 +990,6 @@ function bindEvents() {
       switchTheme(theme);
     });
   });
-
-  function switchTheme(themeName) {
-    if (!themeName) return;
-
-    // 更新状态
-    state.currentTheme = themeName;
-
-    // 更新 DOM 属性
-    document.documentElement.setAttribute('data-theme', themeName);
-
-    // 更新活动状态
-    document.querySelectorAll('.theme-card').forEach(card => {
-      card.classList.remove('active');
-    });
-    document.querySelector(`[data-theme="${themeName}"]`)?.classList.add('active');
-
-    // 保存到本地存储
-    localStorage.setItem('showmejson-theme', themeName);
-
-    // 显示提示
-    const themeNames = {
-      dark: '深色主题',
-      light: '浅色主题',
-      blue: '蓝色主题',
-      green: '绿色主题'
-    };
-    showToast(`已切换到${themeNames[themeName]}`, "success");
-  }
-
-  function loadTheme() {
-    const savedTheme = localStorage.getItem('showmejson-theme') || 'dark';
-    switchTheme(savedTheme);
-  }
-
-  loadTheme();
 
   // 点击背景关闭设置弹框
   els.settingsModal.addEventListener('click', (e) => {
@@ -983,6 +1037,57 @@ function bindEvents() {
     showToast(ok ? "已复制格式化 JSON" : "复制失败");
   });
 
+  // 复制选中节点路径
+  els.btnCopyPath.addEventListener("click", async () => {
+    if (!state.selectedPath) {
+      showToast("请先在树中选择一个节点", "info");
+      return;
+    }
+    const ok = await copyText(pathToDisplay(state.selectedPath));
+    showToast(ok ? "已复制路径" : "复制失败");
+  });
+
+  // 从 URL 拉取
+  els.btnFetchUrl.addEventListener("click", showFetchDialog);
+  els.btnCloseFetch.addEventListener("click", () => closeModal(els.fetchDialog));
+  els.btnCancelFetch.addEventListener("click", () => closeModal(els.fetchDialog));
+  els.btnConfirmFetch.addEventListener("click", confirmFetch);
+  els.fetchDialog.querySelector(".modal-backdrop").addEventListener("click", () => closeModal(els.fetchDialog));
+  els.fetchUrl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") confirmFetch();
+    if (e.key === "Escape") closeModal(els.fetchDialog);
+  });
+
+  // 转换 / 导出
+  els.btnConvert.addEventListener("click", showConvertDialog);
+  els.btnCloseConvert.addEventListener("click", () => closeModal(els.convertDialog));
+  els.convertDialog.querySelector(".modal-backdrop").addEventListener("click", () => closeModal(els.convertDialog));
+  els.convertFormats.querySelectorAll(".segment-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      els.convertFormats.querySelectorAll(".segment-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.convertFormat = btn.dataset.format;
+      renderConvert();
+    });
+  });
+  els.btnCopyConvert.addEventListener("click", async () => {
+    const ok = await copyText(els.convertOutput.textContent);
+    showToast(ok ? "已复制" : "复制失败");
+  });
+  els.btnDownloadConvert.addEventListener("click", downloadConvert);
+
+  // JSON 对比
+  els.btnDiff.addEventListener("click", showDiffDialog);
+  els.btnCloseDiff.addEventListener("click", () => closeModal(els.diffDialog));
+  els.diffDialog.querySelector(".modal-backdrop").addEventListener("click", () => closeModal(els.diffDialog));
+  els.btnRunDiff.addEventListener("click", runDiff);
+
+  // 历史记录
+  els.btnHistory.addEventListener("click", showHistoryDialog);
+  els.btnCloseHistory.addEventListener("click", () => closeModal(els.historyDialog));
+  els.historyDialog.querySelector(".modal-backdrop").addEventListener("click", () => closeModal(els.historyDialog));
+  els.btnClearHistory.addEventListener("click", clearHistory);
+
   // 搜索功能
   els.searchInput.addEventListener("input", (e) => {
     // 实时搜索，使用防抖
@@ -1017,6 +1122,7 @@ function bindEvents() {
   // 搜索选项事件
   els.searchKeys.addEventListener("change", (e) => {
     state.search.searchKeys = e.target.checked;
+    savePrefs({ searchKeys: state.search.searchKeys });
     // 如果有搜索词，重新搜索
     if (state.search.q) {
       startSearch(state.search.q);
@@ -1025,6 +1131,7 @@ function bindEvents() {
 
   els.searchValues.addEventListener("change", (e) => {
     state.search.searchValues = e.target.checked;
+    savePrefs({ searchValues: state.search.searchValues });
     // 如果有搜索词，重新搜索
     if (state.search.q) {
       startSearch(state.search.q);
@@ -1059,24 +1166,43 @@ function bindEvents() {
     if (e.key === "Escape" && document.activeElement === els.searchInput) {
       els.btnClearSearch.click();
     }
+
+    // Escape 关闭打开的弹窗与下拉菜单
+    if (e.key === "Escape") {
+      [els.fetchDialog, els.convertDialog, els.diffDialog, els.historyDialog].forEach((m) => {
+        if (m && !m.classList.contains("hidden")) closeModal(m);
+      });
+      if (els.moreMenu && !els.moreMenu.classList.contains("hidden")) toggleMoreMenu(false);
+    }
   });
 
   // 分割线拖拽
   setupPaneDivider();
+  setupResultsDivider();
+
+  // 拖拽 .json 文件打开
+  setupDragDrop();
+
+  // 更多功能菜单 + 即时悬停提示
+  setupMoreMenu();
+  setupTooltips();
 }
 
 function formatJson() {
+  const text = els.rawContent.textContent || els.rawContent.innerText || "";
   try {
-    const text = els.rawContent.textContent || els.rawContent.innerText || "";
     if (!text.trim()) {
       updateStatus("空内容", "warning");
       updateFormatStatus("无数据", "warning");
       return;
     }
 
+    const parsed = window.JsonTools.looseParseJson(text);
+
     state.rawText = text;
-    state.value = JSON.parse(text);
+    state.value = parsed.value;
     state.prettyText = JSON.stringify(state.value, null, 2);
+    state.parsedStringPaths.clear();
 
     hideError();
     state.isRawContentDirty = false;
@@ -1085,7 +1211,7 @@ function formatJson() {
     updateRawContentHighlight(text);
 
     // 更新状态
-    updateStatus("有效 JSON", "success");
+    updateStatus(parsed.repaired ? "已自动修复" : "有效 JSON", parsed.repaired ? "warning" : "success");
     updateSizeInfo(formatBytes(new Blob([text]).size));
     updateFormatStatus("已格式化", "success");
 
@@ -1094,16 +1220,42 @@ function formatJson() {
     state.expanded.add(pathToKey([]));
     rerenderTree({ keepSelection: false });
 
-    showToast("JSON 格式化成功");
-  } catch (e) {
-    showError(`JSON 解析失败：${String(e?.message || e)}`);
-    updateStatus("无效 JSON", "error");
-    updateFormatStatus("解析错误", "error");
-    els.treeRoot.innerHTML = "";
+    if (parsed.repaired && parsed.repairs && parsed.repairs.length) {
+      showToast(`已自动修复：${parsed.repairs.join("、")}`, "warning", 2600);
+    } else {
+      showToast("JSON 格式化成功");
+    }
 
-    // 即使解析失败，也尝试高亮
-    updateRawContentHighlight(text);
+    // 记录历史（防抖，避免编辑过程频繁写入）
+    scheduleHistory(state.prettyText, state.sourceUrl);
+  } catch (e) {
+    const loc = window.JsonTools.locateJsonError(text, e);
+    const where = loc.line > 0 ? `（第 ${loc.line} 行，第 ${loc.column} 列）` : "";
+    showError(`JSON 解析失败${where}：${loc.message}`);
+    updateStatus("无效 JSON", "error");
+    updateFormatStatus(loc.line > 0 ? `第 ${loc.line} 行出错` : "解析错误", "error");
+    els.treeRoot.innerHTML = "";
+    showRawError(text, loc);
   }
+}
+
+// 解析失败时在左侧定位并高亮出错的那一行
+function showRawError(text, loc) {
+  if (!loc || loc.line < 1) {
+    els.rawContent.classList.remove("highlighted");
+    els.rawContent.textContent = text;
+    return;
+  }
+  const lines = text.split("\n");
+  els.rawContent.classList.remove("highlighted");
+  els.rawContent.innerHTML = lines
+    .map((line, idx) => {
+      const safe = escapeHtml(line) || "&nbsp;";
+      return idx + 1 === loc.line ? `<span class="error-line">${safe}</span>` : safe;
+    })
+    .join("\n");
+  const marker = els.rawContent.querySelector(".error-line");
+  marker?.scrollIntoView({ block: "center" });
 }
 
 function updateRawContentHighlight(text) {
@@ -1119,7 +1271,7 @@ function updateRawContentHighlight(text) {
     // 格式化并高亮显示
     const formatted = JSON.stringify(parsed, null, 2);
     els.rawContent.classList.add('highlighted');
-    els.rawContent.innerHTML = highlightJson(escapeHtml(formatted));
+    els.rawContent.innerHTML = jsonHighlight(formatted);
   } catch (e) {
     // 解析失败，显示原始文本但尝试高亮
     els.rawContent.classList.remove('highlighted');
@@ -1181,36 +1333,419 @@ function hideSettings() {
 }
 
 function switchTheme(themeName) {
-  if (!themeName) return;
+  const nextTheme = Object.hasOwn(THEME_NAMES, themeName) ? themeName : "dark";
 
   // 更新状态
-  state.currentTheme = themeName;
+  state.currentTheme = nextTheme;
 
   // 更新 DOM 属性
-  document.documentElement.setAttribute('data-theme', themeName);
+  document.documentElement.setAttribute('data-theme', nextTheme);
 
   // 更新活动状态
   document.querySelectorAll('.theme-card').forEach(card => {
     card.classList.remove('active');
   });
-  document.querySelector(`[data-theme="${themeName}"]`)?.classList.add('active');
+  document.querySelector(`.theme-card[data-theme="${nextTheme}"]`)?.classList.add('active');
 
   // 保存到本地存储
-  localStorage.setItem('showmejson-theme', themeName);
+  localStorage.setItem('showmejson-theme', nextTheme);
 
   // 显示提示
-  const themeNames = {
-    dark: '深色主题',
-    light: '浅色主题',
-    blue: '蓝色主题',
-    green: '绿色主题'
-  };
-  showToast(`已切换到${themeNames[themeName]}`, "success");
+  showToast(`已切换到${THEME_NAMES[nextTheme]}`, "success");
 }
 
 function loadTheme() {
   const savedTheme = localStorage.getItem('showmejson-theme') || 'dark';
   switchTheme(savedTheme);
+}
+
+// 用文本加载并格式化（供拉取/拖拽/粘贴复用）
+function loadJsonText(text, sourceLabel) {
+  els.rawContent.textContent = String(text || "");
+  state.rawText = String(text || "");
+  state.isRawContentDirty = true;
+  if (sourceLabel) {
+    state.sourceUrl = sourceLabel;
+    els.sourceUrl.textContent = sourceLabel;
+  }
+  formatJson();
+}
+
+function openModal(modal) {
+  modal.classList.remove("hidden");
+}
+
+function closeModal(modal) {
+  modal.classList.add("hidden");
+}
+
+// ---- 从 URL 拉取 ----
+function showFetchDialog() {
+  els.fetchUrl.value = "";
+  openModal(els.fetchDialog);
+  setTimeout(() => els.fetchUrl.focus(), 100);
+}
+
+async function confirmFetch() {
+  const url = els.fetchUrl.value.trim();
+  if (!url) {
+    showToast("请输入 URL", "error");
+    return;
+  }
+  showToast("正在拉取…", "info", 4000);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    closeModal(els.fetchDialog);
+    loadJsonText(text, url);
+  } catch (e) {
+    showToast(`拉取失败：${String(e?.message || e)}`, "error", 3000);
+  }
+}
+
+// ---- 转换 / 导出 ----
+function renderConvert() {
+  if (!state.value && state.value !== 0) {
+    els.convertOutput.textContent = "暂无可转换的 JSON";
+    return;
+  }
+  let out = "";
+  try {
+    if (state.convertFormat === "yaml") out = window.JsonTools.toYaml(state.value);
+    else if (state.convertFormat === "csv") out = window.JsonTools.toCsv(state.value);
+    else out = window.JsonTools.toTypeScript(state.value, "Root");
+  } catch (e) {
+    out = `转换失败：${String(e?.message || e)}`;
+  }
+  els.convertOutput.textContent = out;
+}
+
+function showConvertDialog() {
+  if (!state.value && state.value !== 0) {
+    showToast("请先格式化有效的 JSON", "error");
+    return;
+  }
+  renderConvert();
+  openModal(els.convertDialog);
+}
+
+function downloadConvert() {
+  const ext = state.convertFormat === "ts" ? "ts" : state.convertFormat;
+  const mime =
+    state.convertFormat === "csv" ? "text/csv" : state.convertFormat === "ts" ? "text/plain" : "text/yaml";
+  const blob = new Blob([els.convertOutput.textContent || ""], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `export.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---- JSON 对比 ----
+function showDiffDialog() {
+  els.diffA.value = state.prettyText || "";
+  els.diffB.value = "";
+  els.diffResult.innerHTML = "";
+  els.diffSummary.textContent = "";
+  openModal(els.diffDialog);
+  setTimeout(() => els.diffB.focus(), 100);
+}
+
+function diffValueText(v) {
+  if (v === undefined) return "—";
+  const s = JSON.stringify(v);
+  return s && s.length > 120 ? s.slice(0, 120) + "…" : s;
+}
+
+function runDiff() {
+  let a;
+  let b;
+  try {
+    a = window.JsonTools.looseParseJson(els.diffA.value).value;
+  } catch (e) {
+    showToast("A 解析失败：" + String(e?.message || e), "error", 3000);
+    return;
+  }
+  try {
+    b = window.JsonTools.looseParseJson(els.diffB.value).value;
+  } catch (e) {
+    showToast("B 解析失败：" + String(e?.message || e), "error", 3000);
+    return;
+  }
+
+  const diffs = window.JsonTools.jsonDiff(a, b);
+  els.diffResult.innerHTML = "";
+
+  if (!diffs.length) {
+    els.diffResult.innerHTML = `<div class="diff-empty">两段 JSON 完全一致</div>`;
+    els.diffSummary.textContent = "无差异";
+    return;
+  }
+
+  const tagText = { added: "新增", removed: "删除", changed: "修改" };
+  const counts = { added: 0, removed: 0, changed: 0 };
+
+  for (const d of diffs) {
+    counts[d.type]++;
+    const row = document.createElement("div");
+    row.className = `diff-row ${d.type}`;
+
+    const tag = document.createElement("span");
+    tag.className = "diff-tag";
+    tag.textContent = tagText[d.type];
+
+    const path = document.createElement("span");
+    path.className = "diff-path";
+    path.textContent = pathToDisplay(d.path);
+
+    const vals = document.createElement("span");
+    vals.className = "diff-vals";
+    if (d.type === "changed") vals.textContent = `${diffValueText(d.a)} → ${diffValueText(d.b)}`;
+    else if (d.type === "added") vals.textContent = diffValueText(d.b);
+    else vals.textContent = diffValueText(d.a);
+
+    row.appendChild(tag);
+    row.appendChild(path);
+    row.appendChild(vals);
+    els.diffResult.appendChild(row);
+  }
+
+  els.diffSummary.textContent = `新增 ${counts.added} · 删除 ${counts.removed} · 修改 ${counts.changed}`;
+}
+
+// ---- 拖拽 .json 文件打开 ----
+function setupDragDrop() {
+  ["dragenter", "dragover"].forEach((ev) =>
+    document.addEventListener(ev, (e) => {
+      e.preventDefault();
+    })
+  );
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadJsonText(String(reader.result || ""), file.name);
+    reader.readAsText(file);
+  });
+}
+
+// ---- 历史记录 ----
+function hashString(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
+
+function getHistory() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(HISTORY_KEY, (data) => {
+        resolve(Array.isArray(data?.[HISTORY_KEY]) ? data[HISTORY_KEY] : []);
+      });
+    } catch (_) {
+      resolve([]);
+    }
+  });
+}
+
+function setHistory(list) {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.set({ [HISTORY_KEY]: list }, () => resolve());
+    } catch (_) {
+      resolve();
+    }
+  });
+}
+
+async function recordHistory(jsonText, sourceUrl) {
+  const text = String(jsonText || "");
+  if (!text.trim()) return;
+  const bytes = new Blob([text]).size;
+  if (bytes > HISTORY_ITEM_MAX_BYTES) return; // 过大不入库，保证可重新载入
+
+  const hash = hashString(text);
+  const list = await getHistory();
+  if (list[0] && list[0].hash === hash) return; // 与最近一条相同则跳过
+
+  const filtered = list.filter((it) => it.hash !== hash);
+  filtered.unshift({
+    id: `${Date.now()}_${hash}`,
+    hash,
+    ts: Date.now(),
+    sourceUrl: sourceUrl || state.sourceUrl || "",
+    size: bytes,
+    preview: text.replace(/\s+/g, " ").trim().slice(0, 160),
+    jsonText: text
+  });
+  await setHistory(filtered.slice(0, HISTORY_MAX));
+}
+
+function scheduleHistory(jsonText, sourceUrl) {
+  clearTimeout(scheduleHistory._t);
+  scheduleHistory._t = setTimeout(() => recordHistory(jsonText, sourceUrl), 1500);
+}
+
+function formatHistoryTime(ts) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+async function renderHistory() {
+  const list = await getHistory();
+  els.historyList.innerHTML = "";
+
+  if (!list.length) {
+    els.historyList.innerHTML = `<div class="history-empty">暂无历史记录</div>`;
+    els.historySummary.textContent = "";
+    return;
+  }
+
+  els.historySummary.textContent = `共 ${list.length} 条`;
+
+  for (const item of list) {
+    const row = document.createElement("div");
+    row.className = "history-item";
+
+    const main = document.createElement("div");
+    main.className = "history-main";
+
+    const preview = document.createElement("div");
+    preview.className = "history-preview";
+    preview.textContent = item.preview || "(空)";
+
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    const time = document.createElement("span");
+    time.textContent = formatHistoryTime(item.ts);
+    const size = document.createElement("span");
+    size.textContent = formatBytes(item.size || 0);
+    meta.appendChild(time);
+    meta.appendChild(size);
+    if (item.sourceUrl) {
+      const src = document.createElement("span");
+      src.className = "history-source";
+      src.textContent = item.sourceUrl;
+      meta.appendChild(src);
+    }
+
+    main.appendChild(preview);
+    main.appendChild(meta);
+
+    const del = document.createElement("button");
+    del.className = "history-del";
+    del.textContent = "✕";
+    del.title = "删除此条";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteHistoryItem(item.id);
+    });
+
+    row.appendChild(main);
+    row.appendChild(del);
+    row.addEventListener("click", () => {
+      closeModal(els.historyDialog);
+      loadJsonText(item.jsonText, item.sourceUrl);
+      showToast("已载入历史记录");
+    });
+
+    els.historyList.appendChild(row);
+  }
+}
+
+async function deleteHistoryItem(id) {
+  const list = await getHistory();
+  await setHistory(list.filter((it) => it.id !== id));
+  renderHistory();
+}
+
+async function clearHistory() {
+  await setHistory([]);
+  renderHistory();
+  showToast("历史已清空");
+}
+
+function showHistoryDialog() {
+  openModal(els.historyDialog);
+  renderHistory();
+}
+
+// ---- 更多功能下拉菜单 ----
+function toggleMoreMenu(show) {
+  const willShow = typeof show === "boolean" ? show : els.moreMenu.classList.contains("hidden");
+  els.moreMenu.classList.toggle("hidden", !willShow);
+}
+
+function setupMoreMenu() {
+  els.btnMore.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMoreMenu();
+  });
+
+  // 点击菜单项后收起
+  els.moreMenu.querySelectorAll(".menu-item").forEach((item) => {
+    item.addEventListener("click", () => toggleMoreMenu(false));
+  });
+
+  // 点击外部收起
+  document.addEventListener("click", (e) => {
+    if (els.moreMenu.classList.contains("hidden")) return;
+    if (!els.moreMenu.contains(e.target) && !els.btnMore.contains(e.target)) {
+      toggleMoreMenu(false);
+    }
+  });
+}
+
+// ---- 即时悬停提示（替代原生 title 的延迟）----
+function setupTooltips() {
+  const tip = document.createElement("div");
+  tip.className = "app-tooltip hidden";
+  document.body.appendChild(tip);
+
+  // 把工具栏按钮的 title 转为 data-tip，避免与原生提示重复
+  document.querySelectorAll(".topbar [title]").forEach((el) => {
+    el.dataset.tip = el.getAttribute("title");
+    el.removeAttribute("title");
+  });
+
+  let current = null;
+
+  const show = (el) => {
+    current = el;
+    tip.textContent = el.dataset.tip;
+    tip.classList.remove("hidden");
+    const r = el.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    let left = r.left + r.width / 2 - tr.width / 2;
+    left = Math.max(6, Math.min(left, window.innerWidth - tr.width - 6));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${r.bottom + 6}px`;
+  };
+
+  const hide = () => {
+    current = null;
+    tip.classList.add("hidden");
+  };
+
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (el && el !== current) show(el);
+  });
+
+  document.addEventListener("mouseout", (e) => {
+    const el = e.target.closest("[data-tip]");
+    if (el && (!e.relatedTarget || !el.contains(e.relatedTarget))) hide();
+  });
+
+  // 滚动或点击时隐藏，避免残留
+  document.addEventListener("scroll", hide, true);
+  document.addEventListener("click", hide, true);
 }
 
 function clearContent() {
@@ -1257,6 +1792,37 @@ function setupPaneDivider() {
       isDragging = false;
       els.paneDivider.classList.remove("dragging");
       document.body.style.cursor = "";
+      if (els.leftPane?.style.flex) savePrefs({ leftPaneFlex: els.leftPane.style.flex });
+    }
+  });
+}
+
+function setupResultsDivider() {
+  if (!els.resultsDivider || !els.searchResultsPanel) return;
+  let isDragging = false;
+
+  els.resultsDivider.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    els.resultsDivider.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const container = document.querySelector(".main-container");
+    const rect = container.getBoundingClientRect();
+    // 面板靠右，宽度 = 容器右边缘到鼠标的距离；左侧至少给格式化视图留 400px
+    const newWidth = Math.max(240, Math.min(rect.right - e.clientX, rect.width - 400));
+    els.searchResultsPanel.style.flex = `0 0 ${newWidth}px`;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      els.resultsDivider.classList.remove("dragging");
+      document.body.style.cursor = "";
+      if (els.searchResultsPanel?.style.flex) savePrefs({ resultsPanelFlex: els.searchResultsPanel.style.flex });
     }
   });
 }
@@ -1266,6 +1832,16 @@ async function init() {
 
   // 加载保存的主题
   loadTheme();
+
+  // 应用持久化偏好
+  if (typeof prefs.sortKeys === "boolean") {
+    state.sortKeys = prefs.sortKeys;
+    els.toggleSort.checked = prefs.sortKeys;
+  }
+  if (typeof prefs.searchKeys === "boolean") els.searchKeys.checked = prefs.searchKeys;
+  if (typeof prefs.searchValues === "boolean") els.searchValues.checked = prefs.searchValues;
+  if (prefs.leftPaneFlex && els.leftPane) els.leftPane.style.flex = prefs.leftPaneFlex;
+  if (prefs.resultsPanelFlex && els.searchResultsPanel) els.searchResultsPanel.style.flex = prefs.resultsPanelFlex;
 
   // 同步搜索选项状态
   state.search.searchKeys = els.searchKeys.checked;
@@ -1311,4 +1887,3 @@ async function init() {
 }
 
 init();
-
