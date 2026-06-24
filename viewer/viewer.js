@@ -80,6 +80,10 @@ const HISTORY_KEY = "showmejson_history";
 const HISTORY_MAX = 20;
 const HISTORY_ITEM_MAX_BYTES = 1024 * 1024;
 
+// 搜索结果面板宽度范围（在拖拽逻辑中钳制，避免用 CSS max-width 与 flex-basis 冲突）
+const RESULTS_PANEL_MIN_WIDTH = 240;
+const RESULTS_PANEL_MAX_WIDTH = 700;
+
 // 用户偏好持久化（与主题一致，统一走 localStorage）
 const PREFS_KEY = "showmejson-prefs";
 const THEME_NAMES = Object.freeze({
@@ -103,7 +107,7 @@ function savePrefs(patch) {
   Object.assign(prefs, patch);
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 const state = {
@@ -1812,8 +1816,9 @@ function setupResultsDivider() {
     if (!isDragging) return;
     const container = document.querySelector(".main-container");
     const rect = container.getBoundingClientRect();
-    // 面板靠右，宽度 = 容器右边缘到鼠标的距离；左侧至少给格式化视图留 400px
-    const newWidth = Math.max(240, Math.min(rect.right - e.clientX, rect.width - 400));
+    // 面板靠右，宽度 = 容器右边缘到鼠标的距离；最大不超过固定上限，左侧至少给格式化视图留 400px
+    const upper = Math.min(RESULTS_PANEL_MAX_WIDTH, rect.width - 400);
+    const newWidth = Math.max(RESULTS_PANEL_MIN_WIDTH, Math.min(rect.right - e.clientX, upper));
     els.searchResultsPanel.style.flex = `0 0 ${newWidth}px`;
   });
 
@@ -1841,7 +1846,16 @@ async function init() {
   if (typeof prefs.searchKeys === "boolean") els.searchKeys.checked = prefs.searchKeys;
   if (typeof prefs.searchValues === "boolean") els.searchValues.checked = prefs.searchValues;
   if (prefs.leftPaneFlex && els.leftPane) els.leftPane.style.flex = prefs.leftPaneFlex;
-  if (prefs.resultsPanelFlex && els.searchResultsPanel) els.searchResultsPanel.style.flex = prefs.resultsPanelFlex;
+  if (prefs.resultsPanelFlex && els.searchResultsPanel) {
+    // 兼容历史中保存的更大宽度：恢复时同样钳制到上限
+    const m = /([\d.]+)px/.exec(prefs.resultsPanelFlex);
+    if (m) {
+      const w = Math.min(parseFloat(m[1]), RESULTS_PANEL_MAX_WIDTH);
+      els.searchResultsPanel.style.flex = `0 0 ${w}px`;
+    } else {
+      els.searchResultsPanel.style.flex = prefs.resultsPanelFlex;
+    }
+  }
 
   // 同步搜索选项状态
   state.search.searchKeys = els.searchKeys.checked;
