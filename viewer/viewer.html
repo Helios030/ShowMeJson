@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShowMeJson</title>
+  <link rel="stylesheet" href="./viewer.css" />
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="header-left">
+        <div class="title">
+          <div class="name">ShowMeJson</div>
+          <div id="sourceUrl" class="meta"></div>
+        </div>
+        <div class="status-info">
+          <span id="jsonStatus" class="status-badge">未加载</span>
+          <span id="jsonSize" class="size-info"></span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="settings-trigger">
+          <button id="btnSettings" class="btn btn-icon" title="设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 8.54l4.24 4.24M20.46 15.46l-4.24 4.24M1.54 15.46l4.24 4.24">
+              </path>
+            </svg>
+          </button>
+        </div>
+        <div class="search-container">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input id="searchInput" type="text" placeholder="搜索 key 或 value..." class="search-input" />
+            <button id="btnClearSearch" class="search-clear-btn" title="清空搜索">✕</button>
+          </div>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="btn-group">
+          <button id="btnFormat" class="btn" title="重新格式化">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+          </button>
+          <button id="btnExpand2" class="btn" title="展开 2 层">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="9" y1="9" x2="15" y2="9"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </button>
+          <button id="btnCollapseAll" class="btn" title="全部折叠">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </button>
+          <button id="btnExpandAll" class="btn" title="全部展开">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+        <label class="toggle">
+          <input id="toggleSort" type="checkbox" />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">排序</span>
+        </label>
+        <div class="toolbar-divider"></div>
+        <div class="btn-group">
+          <button id="btnSave" class="btn" title="保存为 JSON 文件 (Ctrl+S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+          </button>
+          <button id="btnCopyPath" class="btn" disabled title="复制路径">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+          <button id="btnCopyRaw" class="btn" title="复制原始 JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </button>
+          <button id="btnCopyPretty" class="btn" title="复制格式化 JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <div class="left-pane">
+        <div class="pane-header">
+          <div class="header-title">
+            <span class="title-text">原始 JSON</span>
+            <button id="btnClear" class="btn btn-small" title="清空">✕</button>
+          </div>
+          <div class="header-actions">
+            <button id="btnPaste" class="btn btn-small" title="点击后使用 Ctrl+V 粘贴">📋</button>
+          </div>
+        </div>
+        <div class="content-box">
+          <div id="rawContent" class="raw-content" contenteditable="true" spellcheck="false"
+            placeholder="在此粘贴 JSON 数据..."></div>
+        </div>
+      </div>
+      <div class="pane-divider" id="paneDivider"></div>
+      <div class="right-pane">
+        <div class="pane-header">
+          <div class="header-title">
+            <span class="title-text">格式化视图</span>
+            <span id="formatStatus" class="status-badge"></span>
+          </div>
+        </div>
+        <div class="content-box">
+          <section id="panelTree" class="panel panel-tree">
+            <div id="treeRoot" class="tree"></div>
+          </section>
+        </div>
+      </div>
+      <div class="search-results-panel" id="searchResultsPanel">
+        <div class="pane-header">
+          <div class="header-title">
+            <span class="title-text">搜索结果</span>
+            <button id="btnCloseResults" class="btn btn-small" title="关闭结果">✕</button>
+          </div>
+        </div>
+        <div class="content-box">
+          <div class="search-options">
+            <div class="options-header">搜索范围</div>
+            <div class="checkbox-group">
+              <label class="checkbox-option">
+                <input type="checkbox" id="searchKeys" checked />
+                <span class="checkmark"></span>
+                <span>Key (键名)</span>
+              </label>
+              <label class="checkbox-option">
+                <input type="checkbox" id="searchValues" checked />
+                <span class="checkmark"></span>
+                <span>Value (值)</span>
+              </label>
+            </div>
+          </div>
+          <div class="search-controls">
+            <div id="resultsMeta" class="results-meta">未搜索</div>
+            <div class="search-actions">
+              <button id="btnHighlightAll" class="btn btn-small" title="高亮所有匹配">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 11l-6 6v3h3l6-6m-6-6l6-6m-6 6h12a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-12"></path>
+                </svg>
+                <span>高亮全部</span>
+              </button>
+            </div>
+          </div>
+          <div class="search-navigation">
+            <button id="btnPrev" class="btn-nav" disabled title="上一个">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <span class="nav-counter">
+              <span id="currentIndex">0</span> / <span id="totalCount">0</span>
+            </span>
+            <button id="btnNext" class="btn-nav" disabled title="下一个">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+          <div id="resultsList" class="results-list"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 保存对话框 -->
+    <div id="saveDialog" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="saveFilename">文件名</label>
+            <input id="saveFilename" type="text" class="form-input" placeholder="输入文件名..." />
+            <span class="form-hint">.json</span>
+          </div>
+          <div class="form-group">
+            <label for="saveContent">保存内容</label>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="contentType" value="pretty" checked />
+                <span>格式化 JSON (推荐)</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="contentType" value="raw" />
+                <span>原始 JSON</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnCancelSave" class="btn">取消</button>
+          <button id="btnConfirmSave" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="errorBox" class="error hidden"></div>
+  </div>
+  <!-- 设置弹框 -->
+  <div class="settings-modal" id="settingsModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>设置</h3>
+        <button id="btnCloseSettings" class="btn btn-small" title="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h4>主题设置</h4>
+          <div class="theme-options">
+            <div class="theme-card" data-theme="dark">
+              <div class="theme-preview theme-dark-preview"></div>
+              <div class="theme-info">
+                <span class="theme-name">深色主题</span>
+                <span class="theme-desc">经典深色界面，护眼舒适</span>
+              </div>
+            </div>
+            <div class="theme-card" data-theme="light">
+              <div class="theme-preview theme-light-preview"></div>
+              <div class="theme-info">
+                <span class="theme-name">浅色主题</span>
+                <span class="theme-desc">明亮简洁，适合日间</span>
+              </div>
+            </div>
+            <div class="theme-card" data-theme="blue">
+              <div class="theme-preview theme-blue-preview"></div>
+              <div class="theme-info">
+                <span class="theme-name">蓝色主题</span>
+                <span class="theme-desc">海洋风格，清新舒适</span>
+              </div>
+            </div>
+            <div class="theme-card" data-theme="green">
+              <div class="theme-preview theme-green-preview"></div>
+              <div class="theme-info">
+                <span class="theme-name">绿色主题</span>
+                <span class="theme-desc">森林护眼，自然色调</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="./viewer.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "ShowMeJson",
+  "version": "0.1.0",
+  "description": "JSON 格式化工具：手动粘贴内容或右键选中格式化，不会自动检测页面内容。支持语法高亮和双向编辑。",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service_worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content_script.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_title": "JSON 格式化显示"
+  }
+}
