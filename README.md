@@ -1,18 +1,30 @@
-# JSON 格式化显示（Chrome 插件）
+# JSON 格式化显示（Chrome / Firefox 插件）
 
 ## 安装（开发者模式）
+
+### Chrome 121+
 
 1. 打开 Chrome → `chrome://extensions/`
 2. 右上角开启「开发者模式」
 3. 点击「加载已解压的扩展程序」
-4. 选择本目录：`json_formatter_extension/`
+4. 选择项目根目录（包含 `manifest.json` 的 `ShowMeJson/`）
+
+### Firefox 121+
+
+1. 打开 Firefox → `about:debugging#/runtime/this-firefox`
+2. 点击「临时载入附加组件」
+3. 选择项目根目录中的 `manifest.json`
+
+临时安装的扩展会在 Firefox 重启后移除，需要重新载入。通过「从文件安装附加组件」长期安装需要 Mozilla 签名的 XPI 文件。
+
+两个浏览器共用同一个 Manifest V3 配置和后台脚本：Chrome 使用 `background.service_worker`，Firefox 使用 `background.scripts`。此组合要求 Chrome / Firefox 121+，详见 [MDN 兼容性说明](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background#browser_support)。
 
 ## 使用
 
-### 1) 自动美化整页 JSON
+### 1) 手动粘贴 JSON
 
-- 直接访问返回 JSON 的 URL（`Content-Type: application/json` 或页面几乎只有 JSON 文本）
-- 插件会自动在当前标签页切换到美化查看页
+- 点击工具栏中的插件图标，打开查看页
+- 粘贴 JSON 文本并格式化
 
 ### 2) 选中文本右键格式化
 
@@ -51,5 +63,5 @@
 ## 已知限制
 
 - 右键格式化只针对“选中的文本”（不会自动从页面 DOM 提取非选中内容）
-- 某些网站会把 JSON 包在复杂 HTML 中，自动识别可能不会触发（可用选中右键方式）
+- 插件不会自动检测或替换整页 JSON，可手动粘贴或选中文本后右键格式化
 
