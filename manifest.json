@@ -6,7 +6,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "showmejson@helios030",
-      "strict_min_version": "121.0"
+      "strict_min_version": "121.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "description": "JSON 格式化工具：手动粘贴内容或右键选中格式化，不会自动检测页面内容。支持语法高亮和双向编辑。",

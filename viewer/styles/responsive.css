@@ -1,0 +1,131 @@
+@media (max-width: 1240px) {
+  .topbar { gap: 14px; }
+  .document-identity { padding-left: 14px; }
+  .workspace-actions .btn-label { display: none; }
+  .result-header { gap: 8px; }
+  .result-actions { gap: 4px; }
+  .search-input-wrapper { flex-basis: 180px; }
+}
+
+@media (max-width: 1080px) {
+  .document-identity { display: none; }
+  .topbar { justify-content: space-between; }
+  .header-right .btn-label { display: none; }
+  .header-right .btn-primary .btn-label { display: inline; }
+  .history-panel { flex-basis: 240px; }
+  .left-pane { min-width: 230px; }
+  .right-pane { min-width: 330px; }
+  .search-shortcut { display: none; }
+  .toggle-label { display: none; }
+}
+
+@media (max-width: 900px) {
+  .history-panel {
+    position: absolute;
+    top: 64px;
+    bottom: 30px;
+    left: 0;
+    z-index: 75;
+    width: min(320px, 88vw);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-menu);
+  }
+  .search-results-panel {
+    position: absolute;
+    top: 64px;
+    right: 0;
+    bottom: 30px;
+    z-index: 80;
+    width: min(340px, 88vw);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-menu);
+  }
+  .results-divider { display: none !important; }
+  .search-input-wrapper { flex-basis: 150px; min-width: 100px; }
+  .tree-actions #btnExpand2 { display: none; }
+  .status-hints > span:last-child { display: none; }
+}
+
+@media (max-width: 720px) {
+  .topbar { flex-basis: 56px; padding: 0 10px; gap: 8px; }
+  .brand-copy { display: none; }
+  .brand-mark { width: 32px; height: 32px; }
+  .header-right { gap: 2px; }
+  .header-right .toolbar-divider { display: none; }
+  .header-right .btn-primary .btn-label { display: none; }
+  .workspace-actions #btnDiff { display: none; }
+  .mobile-workspace-tabs {
+    display: flex;
+    flex: 0 0 40px;
+    gap: 4px;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .mobile-tab {
+    flex: 1;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .mobile-tab.active {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+  }
+  .main-container { position: relative; }
+  .left-pane,
+  .right-pane { display: none; width: 100%; min-width: 0; max-width: none; }
+  body[data-mobile-pane="source"] .left-pane { display: flex; flex: 1; }
+  body[data-mobile-pane="result"] .right-pane { display: flex; flex: 1; }
+  #paneDivider { display: none; }
+  .history-panel { top: 96px; }
+  .search-results-panel { top: 96px; }
+  .result-header { flex-wrap: wrap; flex-basis: auto; min-height: 52px; padding: 8px 10px; }
+  .result-actions { flex: 1 0 100%; justify-content: space-between; }
+  .search-input-wrapper { flex: 1; }
+  .tree-actions #btnExpand2 { display: inline-flex; }
+  .status-hints { display: none; }
+  .statusbar { gap: 10px; }
+  .empty-state { padding: 30px 18px 50px; }
+  .empty-state h1 { font-size: 23px; }
+  .empty-state p br { display: none; }
+  .empty-visual { margin-bottom: 14px; transform: scale(0.85); }
+  .empty-drop-hint { text-align: left; }
+  .modal, .settings-modal { padding: 10px; }
+  .modal-content, .modal-content.modal-wide { width: calc(100vw - 20px); max-height: 90vh; border-radius: 13px; }
+  .modal-header, .modal-body { padding-left: 16px; padding-right: 16px; }
+  .modal-footer { padding: 12px 16px; }
+  .diff-inputs { grid-template-columns: 1fr; }
+  .diff-textarea { height: 100px; }
+  .modal-footer-note { display: none; }
+}
+
+@media (max-width: 480px) {
+  .workspace-actions { display: none; }
+  .pane-header { padding: 0 10px; }
+  .pane-kicker { display: none; }
+  .header-actions .btn-small span { display: none; }
+  .header-actions .btn-small { width: 28px; padding: 5px; }
+  .theme-options { grid-template-columns: 1fr; }
+  .radio-group { grid-template-columns: 1fr; }
+  .empty-actions { flex-direction: column; width: 100%; max-width: 240px; }
+  .empty-actions .btn { width: 100%; }
+  .selected-path { display: none; }
+  .statusbar { justify-content: center; }
+  .diff-row { flex-wrap: wrap; gap: 5px 9px; }
+  .diff-vals { flex-basis: 100%; padding-left: 43px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
