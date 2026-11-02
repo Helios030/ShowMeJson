@@ -8,7 +8,7 @@ import { setSearchSelectedIndex, startSearch, toggleHighlight } from "../feature
 import { hideSettings, showSettings, switchTheme } from "../features/settings.js";
 import { confirmFetch, confirmSave, hideSaveDialog, setupDragDrop, showFetchDialog, showSaveDialog } from "../features/io.js";
 import { downloadConvert, renderConvert, showConvertDialog } from "../features/convert.js";
-import { runDiff, toggleComparePanel } from "../features/diff.js";
+import { markDiffDirty, runDiff, toggleComparePanel } from "../features/diff.js";
 import { clearHistory, renderHistory, setHistoryLoader, toggleHistoryPanel } from "../features/history.js";
 import { setupPaneDivider, setupResultsDivider } from "../features/layout.js";
 
@@ -136,10 +136,13 @@ export function bindEvents() {
   on(els.btnCloseSourcePanel, "click", () => setPanelVisible("source", false));
   on(els.btnCloseResultPanel, "click", () => setPanelVisible("result", false));
   on(els.btnRunDiff, "click", runDiff);
-  on(els.btnToggleDiffInputs, "click", () => {
-    const show = els.diffInputs.classList.contains("hidden");
-    els.diffInputs.classList.toggle("hidden", !show);
-    els.btnToggleDiffInputs.textContent = show ? "收起输入" : "编辑输入";
+  [els.diffFormattedA, els.diffFormattedB].forEach((editor) => {
+    on(editor, "input", markDiffDirty);
+    on(editor, "paste", (event) => {
+      event.preventDefault();
+      const text = event.clipboardData.getData("text/plain");
+      document.execCommand("insertText", false, text);
+    });
   });
 
   on(els.btnHistory, "click", toggleHistoryPanel);

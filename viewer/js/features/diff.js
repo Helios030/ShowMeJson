@@ -4,20 +4,35 @@ import { jsonHighlight, pathToDisplay, pathToKey } from "../core/utils.js";
 import { setPanelVisible, showToast } from "../core/ui.js";
 
 let diffRenderContext = null;
+let initialized = false;
+let hasCompared = false;
+let suppressDirty = false;
 
 export function toggleComparePanel() {
   const show = !workspacePanels.compare;
-  if (show && !els.diffA.value && !els.diffB.value && !diffRenderContext) {
-    els.diffA.value = state.prettyText || "";
-    els.diffSummary.textContent = state.prettyText ? "当前文档已填入版本 A" : "";
-    els.diffInputs.classList.remove("hidden");
-    els.diffEmpty.classList.remove("hidden");
-    els.diffView.classList.add("hidden");
-    els.btnToggleDiffInputs.classList.add("hidden");
-    els.btnRunDiff.textContent = "开始对比";
+  if (show && !initialized) {
+    initialized = true;
+    if (!els.diffFormattedA.innerText.trim() && !els.diffFormattedB.innerText.trim()) {
+      els.diffFormattedA.textContent = state.prettyText || "";
+      els.diffSummary.textContent = state.prettyText ? "当前文档已填入版本 A" : "直接在两侧面板输入 JSON";
+    }
   }
   setPanelVisible("compare", show);
-  if (show && !diffRenderContext) setTimeout(() => els.diffB.focus(), 80);
+  if (show && !hasCompared) setTimeout(() => els.diffFormattedB.focus(), 80);
+}
+
+export function markDiffDirty() {
+  if (suppressDirty) return;
+  if (!hasCompared) {
+    els.diffSummary.textContent = "输入完成后点击开始对比";
+    return;
+  }
+  diffRenderContext = null;
+  els.diffSummary.textContent = "内容已修改，点击重新对比以更新差异";
+  els.btnRunDiff.textContent = "重新对比";
+  els.diffResult.querySelectorAll(".diff-row").forEach((row) => {
+    row.disabled = true;
+  });
 }
 
 function diffValueText(value) {
@@ -141,35 +156,40 @@ function focusDiffResult(index) {
 }
 
 export function runDiff() {
+  const aText = els.diffFormattedA.innerText;
+  const bText = els.diffFormattedB.innerText;
   let a;
   let b;
   try {
-    a = window.JsonTools.looseParseJson(els.diffA.value).value;
+    a = window.JsonTools.looseParseJson(aText).value;
   } catch (error) {
     showToast("A 解析失败：" + String(error?.message || error), "error", 3000);
-    els.diffA.focus();
+    els.diffFormattedA.focus();
     return;
   }
   try {
-    b = window.JsonTools.looseParseJson(els.diffB.value).value;
+    b = window.JsonTools.looseParseJson(bText).value;
   } catch (error) {
     showToast("B 解析失败：" + String(error?.message || error), "error", 3000);
-    els.diffB.focus();
+    els.diffFormattedB.focus();
     return;
   }
 
   const diffs = window.JsonTools.jsonDiff(a, b);
-  diffRenderContext = {
-    diffs,
-    a: renderFormattedDiff(els.diffFormattedA, a, diffs, "a"),
-    b: renderFormattedDiff(els.diffFormattedB, b, diffs, "b")
-  };
+  suppressDirty = true;
+  try {
+    diffRenderContext = {
+      diffs,
+      a: renderFormattedDiff(els.diffFormattedA, a, diffs, "a"),
+      b: renderFormattedDiff(els.diffFormattedB, b, diffs, "b")
+    };
+  } finally {
+    setTimeout(() => {
+      suppressDirty = false;
+    }, 0);
+  }
+  hasCompared = true;
   els.diffResult.innerHTML = "";
-  els.diffEmpty.classList.add("hidden");
-  els.diffView.classList.remove("hidden");
-  els.diffInputs.classList.add("hidden");
-  els.btnToggleDiffInputs.classList.remove("hidden");
-  els.btnToggleDiffInputs.textContent = "编辑输入";
   els.btnRunDiff.textContent = "重新对比";
 
   const counts = { added: 0, removed: 0, changed: 0 };

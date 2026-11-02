@@ -13,9 +13,12 @@ export function setupPaneDivider() {
   document.addEventListener("mousemove", (event) => {
     if (!isDragging) return;
     const container = document.querySelector(".main-container");
-    const containerWidth = container.offsetWidth;
-    const newWidth = Math.max(300, Math.min(event.clientX, containerWidth - 400));
-    const percentage = (newWidth / containerWidth) * 100;
+    const containerRect = container.getBoundingClientRect();
+    const leftRect = els.leftPane.getBoundingClientRect();
+    const leftOffset = leftRect.left - containerRect.left;
+    const maxWidth = Math.max(300, containerRect.width - leftOffset - 400);
+    const newWidth = Math.max(300, Math.min(event.clientX - leftRect.left, maxWidth));
+    const percentage = (newWidth / containerRect.width) * 100;
     els.leftPane.style.flex = `0 0 ${percentage}%`;
   });
 

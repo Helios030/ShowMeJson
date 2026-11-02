@@ -1,12 +1,54 @@
 import { els } from "../core/dom.js";
 import { HISTORY_ITEM_MAX_BYTES, HISTORY_KEY, HISTORY_MAX, state, workspacePanels } from "../core/state.js";
-import { formatBytes } from "../core/utils.js";
+import { copyText, formatBytes } from "../core/utils.js";
 import { setPanelVisible, showToast } from "../core/ui.js";
 
 let historyLoader = null;
 
 export function setHistoryLoader(loader) {
   historyLoader = loader;
+}
+
+function enableHistoryLongPress(row, item, loadItem) {
+  let timer = null;
+  let longPressed = false;
+  let startX = 0;
+  let startY = 0;
+  const cancelTimer = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+
+  row.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.target.closest(".history-del")) return;
+    longPressed = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    cancelTimer();
+    timer = setTimeout(async () => {
+      longPressed = true;
+      const ok = await copyText(item.jsonText);
+      showToast(ok ? "已复制历史记录完整 JSON" : "复制失败", ok ? "success" : "error");
+    }, 550);
+  });
+  row.addEventListener("pointermove", (event) => {
+    if (Math.hypot(event.clientX - startX, event.clientY - startY) > 8) cancelTimer();
+  });
+  ["pointerup", "pointercancel", "pointerleave"].forEach((type) => {
+    row.addEventListener(type, cancelTimer);
+  });
+  row.addEventListener("contextmenu", (event) => {
+    if (longPressed) event.preventDefault();
+  });
+  row.addEventListener("click", (event) => {
+    if (longPressed) {
+      event.preventDefault();
+      event.stopPropagation();
+      longPressed = false;
+      return;
+    }
+    loadItem();
+  });
 }
 
 function hashString(text) {
@@ -86,7 +128,8 @@ export async function renderHistory() {
     row.className = "history-item";
     row.tabIndex = 0;
     row.setAttribute("role", "button");
-    row.setAttribute("aria-label", `载入 ${formatHistoryTime(item.ts)} 的 JSON`);
+    row.setAttribute("aria-label", `载入 ${formatHistoryTime(item.ts)} 的 JSON，长按复制完整内容`);
+    row.title = "点击载入，长按复制完整 JSON";
 
     const main = document.createElement("div");
     main.className = "history-main";
@@ -122,7 +165,7 @@ export async function renderHistory() {
       historyLoader?.(item);
       showToast("已载入历史记录", "success");
     };
-    row.addEventListener("click", loadItem);
+    enableHistoryLongPress(row, item, loadItem);
     row.addEventListener("keydown", (event) => {
       if (event.target === row && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();

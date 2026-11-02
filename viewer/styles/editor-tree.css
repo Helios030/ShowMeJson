@@ -56,6 +56,21 @@
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.55;
+  counter-reset: json-line;
+}
+
+.tree .row {
+  counter-increment: json-line;
+}
+
+.tree .row::before {
+  flex: 0 0 30px;
+  color: var(--muted);
+  content: counter(json-line);
+  font-size: 9px;
+  text-align: right;
+  opacity: 0.65;
+  user-select: none;
 }
 
 .node {

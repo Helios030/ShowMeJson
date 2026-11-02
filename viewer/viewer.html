@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ShowMeJson — JSON Workspace</title>
-  <link rel="stylesheet" href="./viewer.css?v=20261102-4" />
+  <link rel="stylesheet" href="./viewer.css?v=20261102-7" />
 </head>
 
 <body>
@@ -261,29 +261,24 @@
           <button id="btnCloseDiff" class="btn btn-small btn-icon btn-quiet" type="button" title="关闭对比面板" aria-label="关闭对比面板">×</button>
         </div>
         <div class="diff-modal-body">
-          <div class="diff-inputs" id="diffInputs">
-            <div class="diff-input-col"><label for="diffA"><span class="version-dot version-a"></span>原始版本 A</label><textarea id="diffA" class="form-input diff-textarea" placeholder="粘贴 JSON A，默认使用当前内容"></textarea></div>
-            <div class="diff-input-col"><label for="diffB"><span class="version-dot version-b"></span>对比版本 B</label><textarea id="diffB" class="form-input diff-textarea" placeholder="粘贴需要对比的 JSON B"></textarea></div>
-          </div>
-          <div id="diffEmpty" class="diff-empty"><div class="diff-empty-icon" aria-hidden="true">⇄</div><strong>准备开始对比</strong><span>输入两段 JSON，差异字段将在双栏格式化视图中标记</span></div>
-          <div id="diffView" class="diff-view hidden">
+          <div id="diffView" class="diff-view">
             <div class="diff-view-grid">
               <section class="diff-code-panel" aria-label="原始版本格式化视图">
-                <div class="diff-code-header"><span><i class="version-dot version-a"></i>原始版本 A</span><code>FORMATTED JSON</code></div>
-                <div id="diffFormattedA" class="diff-formatted" tabindex="0"></div>
+                <div class="diff-code-header"><span><i class="version-dot version-a"></i>原始版本 A</span><code>可直接编辑</code></div>
+                <div id="diffFormattedA" class="diff-formatted" contenteditable="true" role="textbox" aria-multiline="true" aria-label="原始版本 A JSON" spellcheck="false" data-placeholder="输入或粘贴 JSON A"></div>
               </section>
               <section class="diff-code-panel" aria-label="对比版本格式化视图">
-                <div class="diff-code-header"><span><i class="version-dot version-b"></i>对比版本 B</span><code>FORMATTED JSON</code></div>
-                <div id="diffFormattedB" class="diff-formatted" tabindex="0"></div>
+                <div class="diff-code-header"><span><i class="version-dot version-b"></i>对比版本 B</span><code>可直接编辑</code></div>
+                <div id="diffFormattedB" class="diff-formatted" contenteditable="true" role="textbox" aria-multiline="true" aria-label="对比版本 B JSON" spellcheck="false" data-placeholder="输入或粘贴 JSON B"></div>
               </section>
             </div>
             <section class="diff-results-panel" aria-label="差异结果列表">
               <div class="diff-results-header"><span>差异结果</span><span>点击任意结果，同步定位两侧字段</span></div>
-              <div id="diffResult" class="diff-result"></div>
+              <div id="diffResult" class="diff-result"><div class="diff-empty"><strong>直接编辑上方 JSON</strong><span>点击“开始对比”后，在这里查看并定位差异</span></div></div>
             </section>
           </div>
         </div>
-        <div class="compare-footer"><span id="diffSummary" class="diff-summary"></span><button id="btnToggleDiffInputs" class="btn hidden" type="button">编辑输入</button><button id="btnRunDiff" class="btn btn-primary" type="button">开始对比</button></div>
+        <div class="compare-footer"><span id="diffSummary" class="diff-summary"></span><button id="btnRunDiff" class="btn btn-primary" type="button">开始对比</button></div>
       </section>
     </main>
 
@@ -348,7 +343,7 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <div id="errorBox" class="error hidden" role="alert"></div>
   <script src="./json-tools.js?v=20261102-2"></script>
-  <script type="module" src="./viewer.js?v=20261102-4"></script>
+  <script type="module" src="./viewer.js?v=20261102-7"></script>
 </body>
 
 </html>

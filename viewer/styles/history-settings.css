@@ -50,6 +50,8 @@
   border-radius: 10px;
   background: var(--control-bg);
   cursor: pointer;
+  user-select: none;
+  -webkit-touch-callout: none;
   transition: border-color 140ms ease, background-color 140ms ease;
 }
 

@@ -127,8 +127,7 @@
   margin-bottom: 0;
 }
 
-.form-group > label,
-.diff-input-col label {
+.form-group > label {
   display: block;
   margin-bottom: 8px;
   color: var(--text-dim);

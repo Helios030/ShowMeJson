@@ -114,24 +114,6 @@ body.compare-open .history-panel {
   color: var(--warning);
 }
 
-.diff-inputs {
-  display: grid;
-  flex: 0 0 auto;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.diff-input-col {
-  min-width: 0;
-}
-
-.diff-input-col label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
 .version-dot {
   display: inline-block;
   width: 6px;
@@ -145,13 +127,6 @@ body.compare-open .history-panel {
 
 .version-b {
   background: var(--success);
-}
-
-.diff-textarea {
-  height: 116px;
-  resize: vertical;
-  line-height: 1.6;
-  white-space: pre;
 }
 
 .diff-empty {
@@ -241,14 +216,31 @@ body.compare-open .history-panel {
 }
 
 .diff-formatted {
+  position: relative;
   flex: 1;
   min-height: 0;
   padding: 8px 0;
   overflow: auto;
+  caret-color: var(--accent);
   color: var(--text-dim);
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.diff-formatted:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.diff-formatted:empty::before {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  color: var(--muted);
+  content: attr(data-placeholder);
+  pointer-events: none;
 }
 
 .diff-code-line {
